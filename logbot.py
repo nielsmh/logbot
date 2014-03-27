@@ -53,6 +53,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     for chan in self.desired_channels.keys():
       print "Join channel {}".format(chan)
       conn.join(chan)
+    self.save_config()
 
   def on_invite(self, conn, ev):
     # join the channel invited to, and add it to the list of channels we want to be in
