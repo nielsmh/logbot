@@ -28,6 +28,10 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
     self.connection.execute_every(600, self.syncdb)
 
+  def _connect(self):
+    print u"Trying to connect to IRC server..."
+    return super(LogBot, self)._connect()
+
   def save_config(self):
     self.db.delete('cfg:channels')
     self.db.lpush('cfg:channels', *[ch.encode('utf-8') for ch in self.desired_channels.keys()])
