@@ -7,10 +7,22 @@ import random
 
 class LogBot(irc.bot.SingleServerIRCBot):
   def __init__(self, config):
-    super(LogBot, self).__init__(config.servers, config.nick, config.realname)
     self.config = config
-    self.db = redis.StrictRedis(**config.redis)
     self.desired_channels = irc.dict.IRCDict((ch, True) for ch in config.channels)
+
+    print "Connect to database"
+    self.db = redis.StrictRedis(**config.redis)
+
+    db_channels = self.db.lrange('channels', 0, -1)
+    print "Loaded {} channels from config database".format(len(db_channels))
+    self.desired_channels.update((ch, True) for ch in db_channels)
+    print "Total {} channels to join".format(len(self.desired_channels))
+
+    super(LogBot, self).__init__(config.servers, config.nick, config.realname)
+
+  def save_config(self):
+    self.db.delete('channels')
+    self.db.lpush('channels', *self.desired_channels.keys())
 
   def on_nicknameinuse(self, conn, ev):
     new_nick = self.config.nick + random.randint(10, 99)
@@ -38,6 +50,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.desired_channels[channel] = True
     conn.join(channel)
     print "Invited to {} by {}".format(channel, ev.source)
+    self.save_config()
 
   def on_kick(self, conn, ev):
     channel = ev.target
@@ -46,6 +59,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     if kicked == conn.get_nickname():
       del self.desired_channels[channel]
       print "Kicked from {} by {}".format(channel, ev.source)
+      self.save_config()
     else:
       pass #TODO: log
 
@@ -64,7 +78,14 @@ def main():
     exit(1)
 
   bot = LogBot(config)
-  bot.start()
+  try:
+    bot.start()
+  except KeyboardInterrupt:
+    print "Now dying..."
+    bot.save_config()
+    bot.db.save()
+    bot.connection.disconnect("Death by console")
+    print "Dead."
 
 if __name__ == "__main__":
   main()
