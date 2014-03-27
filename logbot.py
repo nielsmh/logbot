@@ -13,7 +13,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     print "Connect to database"
     self.db = redis.StrictRedis(**config.redis)
 
-    db_channels = self.db.lrange('channels', 0, -1)
+    db_channels = self.db.lrange('cfg:channels', 0, -1)
     print "Loaded {} channels from config database".format(len(db_channels))
     self.desired_channels.update((ch, True) for ch in db_channels)
     print "Total {} channels to join".format(len(self.desired_channels))
@@ -25,8 +25,8 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.connection.add_global_handler('quit', self.on_quit_prebot, -50)
 
   def save_config(self):
-    self.db.delete('channels')
-    self.db.lpush('channels', *self.desired_channels.keys())
+    self.db.delete('cfg:channels')
+    self.db.lpush('cfg:channels', *self.desired_channels.keys())
 
   def add_log(self, logdata, channels):
     # log the given data for the given list of channels
