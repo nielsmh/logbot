@@ -3,6 +3,8 @@ import irc.strings
 import irc.dict
 import redis
 import random
+import hashlib
+import time
 
 
 class LogBot(irc.bot.SingleServerIRCBot):
@@ -30,8 +32,18 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
   def add_log(self, logdata, channels):
     # log the given data for the given list of channels
-    print "Logging:", channels, logdata
-    pass
+    logdata['time'] = str(int(time.time()))
+    h = hashlib.md5()
+    for k, v in logdata.iteritems():
+      h.update(k.encode('utf-8'))
+      h.update(v.encode('utf-8'))
+    for c in channels:
+      h.update(c.encode('utf-8'))
+    evname = "evt:{}".format(h.digest())
+    self.db.hmset(evname, logdata)
+    self.db.expire(evname, self.config.expiretime)
+    for ch in channels:
+      self.db.lpush('log:{}'.format(ch), evname)
 
   def get_userchannels(self, usernick):
     return [chn for (chn, cho) in self.channels.iteritems() if cho.has_user(usernick)]
