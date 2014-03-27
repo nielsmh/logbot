@@ -1,5 +1,6 @@
 import irc.bot
 import irc.strings
+import irc.dict
 import redis
 import random
 
@@ -9,7 +10,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     super(LogBot, self).__init__(config.servers, config.nick, config.realname)
     self.config = config
     self.db = redis.StrictRedis(**config.redis)
-    self.desired_channels = set(config.channels)
+    self.desired_channels = irc.dict.IRCDict((ch, True) for ch in config.channels)
 
   def on_nicknameinuse(self, conn, ev):
     new_nick = self.config.nick + random.randint(10, 99)
@@ -25,7 +26,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
   def on_welcome(self, conn, ev):
     print "Connected!"
-    for chan in self.desired_channels:
+    for chan in self.desired_channels.keys():
       print "Join channel {}".format(chan)
       conn.join(chan)
 
@@ -34,7 +35,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     if ev.target != conn.get_nickname():
       return
     channel = ev.arguments[0]
-    self.desired_channels.add(channel)
+    self.desired_channels[channel] = True
     conn.join(channel)
     print "Invited to {} by {}".format(channel, ev.source)
 
@@ -43,7 +44,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     kicked = ev.arguments[0]
     message = ev.arguments[1]
     if kicked == conn.get_nickname():
-      self.desired_channels.remove(channel)
+      del self.desired_channels[channel]
       print "Kicked from {} by {}".format(channel, ev.source)
     else:
       pass #TODO: log
