@@ -26,9 +26,21 @@ class LogBot(irc.bot.SingleServerIRCBot):
     # so the nick is still registered on the channels for us to log
     self.connection.add_global_handler('quit', self.on_quit_prebot, -50)
 
+    self.connection.execute_every(600, self.syncdb)
+
   def save_config(self):
     self.db.delete('cfg:channels')
     self.db.lpush('cfg:channels', *[ch.encode('utf-8') for ch in self.desired_channels.keys()])
+
+  def trimlog(self, channel):
+    self.db.ltrim('log:{}'.format(channel.encode('utf-8')), 0, self.config.maxlogentries-1)
+
+  def syncdb(self):
+    print u"Performing database maintenance..."
+    for ch in self.channels.keys():
+      self.trimlog(ch)
+    self.db.bgsave()
+    print u"Database maintenance done"
 
   def add_log(self, logdata, channels):
     # log the given data for the given list of channels
