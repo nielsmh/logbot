@@ -20,9 +20,21 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
     super(LogBot, self).__init__(config.servers, config.nick, config.realname)
 
+    # need to handle QUIT messages before the default bot handling,
+    # so the nick is still registered on the channels for us to log
+    self.connection.add_global_handler('quit', self.on_quit_prebot, -50)
+
   def save_config(self):
     self.db.delete('channels')
     self.db.lpush('channels', *self.desired_channels.keys())
+
+  def add_log(self, logdata, channels):
+    # log the given data for the given list of channels
+    print "Logging:", channels, logdata
+    pass
+
+  def get_userchannels(self, usernick):
+    return [chn for (chn, cho) in self.channels.iteritems() if cho.has_user(usernick)]
 
   def on_nicknameinuse(self, conn, ev):
     new_nick = self.config.nick + random.randint(10, 99)
@@ -60,13 +72,84 @@ class LogBot(irc.bot.SingleServerIRCBot):
       del self.desired_channels[channel]
       print "Kicked from {} by {}".format(channel, ev.source)
       self.save_config()
+      self.add_log({'event': 'endlog'}, [ev.target])
     else:
-      pass #TODO: log
+      logdata = {
+        'event': 'kick',
+        'source': ev.source,
+        'target': ev.arguments[0],
+        'message': ev.arguments[1] if len(ev.arguments) > 1 else '',
+      }
+      self.add_log(logdata, [ev.target])
+
+  def on_nick(self, conn, ev):
+    if ev.source.nick == conn.get_nickname() or ev.target == conn.get_nickname():
+      # pretend we don't exist
+      return
+    logdata = {
+      'event': 'nick',
+      'source': ev.source,
+      'newnick': ev.target,
+    }
+    self.add_log(logdata, self.get_userchannels(ev.target))
+
+  def on_quit_prebot(self, conn, ev):
+    if ev.source.nick == conn.get_nickname():
+      return
+    if ev.source.nick == self.config.nick:
+      # someone using our desired nick left (maybe a ghost?)
+      # reclaim it!
+      conn.nick(self.config.nick)
+      return
+    logdata = {
+      'event': 'quit',
+      'source': ev.source,
+      'message': ev.arguments[0] if len(ev.arguments) > 0 else '',
+    }
+    self.add_log(logdata, self.get_userchannels(ev.source.nick))
 
   def on_privmsg(self, conn, ev):
     message = ev.arguments[0]
     conn.privmsg(ev.source.nick, "Hi {}, you said: {}".format(ev.source, message))
-    #TODO: log
+
+  def on_pubmsg(self, conn, ev):
+    logdata = {
+      'event': 'privmsg',
+      'source': ev.source,
+      'message': ev.arguments[0] if len(ev.arguments) > 0 else '',
+    }
+    self.add_log(logdata, [ev.target])
+
+  def on_action(self, conn, ev):
+    if not irc.client.is_channel(ev.target):
+      return
+    logdata = {
+      'event': 'action',
+      'source': ev.source,
+      'message': ev.arguments[0] if len(ev.arguments) > 0 else '',
+    }
+    self.add_log(logdata, [ev.target])
+
+  def on_join(self, conn, ev):
+    if ev.source.nick == conn.get_nickname():
+      # that's me!
+      self.add_log({'event': 'startlog'}, [ev.target])
+      return
+    logdata = {
+      'event': 'join',
+      'source': ev.source,
+    }
+    self.add_log(logdata, [ev.target])
+
+  def on_part(self, conn, ev):
+    if ev.source.nick == conn.get_nickname():
+      return
+    logdata = {
+      'event': 'part',
+      'source': ev.source,
+      'message': ev.arguments[0] if len(ev.arguments) > 0 else '',
+    }
+    self.add_log(logdata, [ev.target])
 
 
 def main():
