@@ -180,7 +180,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.add_log(logdata, [ev.target])
 
   def disconnect(self, message=''):
-    self.add_log({'event': 'endlog'}, [ch.encode('utf-8') for ch in self.channels.keys()])
+    self.add_log({'event': 'endlog'}, self.channels.keys())
     self.connection.disconnect(message)
 
 def main():
