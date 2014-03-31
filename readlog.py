@@ -35,7 +35,7 @@ def printevent(ev):
   print fmtstr.format(ts=timestring, **ev)
 
 def printlog(log):
-  for ev in log:
+  for ev in reversed(log):
     printevent(ev)
 
 
