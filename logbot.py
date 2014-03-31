@@ -5,6 +5,7 @@ import redis
 import random
 import hashlib
 import time
+import string
 
 
 class LogBot(irc.bot.SingleServerIRCBot):
@@ -61,7 +62,9 @@ class LogBot(irc.bot.SingleServerIRCBot):
       self.db.lpush('log:{}'.format(ch.encode('utf-8')), evname)
 
   def make_log_read_token(self, nick, channel):
-    return 'abc123' # TODO
+    token = ''.join(random.choice(string.ascii_letters) for i in range(7))
+    self.db.set('tkn:{}'.format(token), channel, ex=self.config.token_duration)
+    return token
 
   def get_userchannels(self, usernick):
     return [chn for (chn, cho) in self.channels.iteritems() if cho.has_user(usernick)]
