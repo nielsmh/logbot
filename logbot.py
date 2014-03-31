@@ -63,7 +63,9 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
   def make_log_read_token(self, nick, channel):
     token = ''.join(random.choice(string.ascii_letters) for i in range(7))
-    self.db.set('tkn:{}'.format(token), channel, ex=self.config.token_duration)
+    dbkey = 'tkn:{}'.format(token)
+    self.db.set(dbkey, channel)
+    self.db.expire(dbkey, self.config.token_duration)
     return token
 
   def get_userchannels(self, usernick):
