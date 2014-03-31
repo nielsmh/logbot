@@ -60,6 +60,9 @@ class LogBot(irc.bot.SingleServerIRCBot):
     for ch in channels:
       self.db.lpush('log:{}'.format(ch.encode('utf-8')), evname)
 
+  def make_log_read_token(self, nick, channel):
+    return 'abc123' # TODO
+
   def get_userchannels(self, usernick):
     return [chn for (chn, cho) in self.channels.iteritems() if cho.has_user(usernick)]
 
@@ -137,8 +140,69 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.add_log(logdata, self.get_userchannels(ev.source.nick))
 
   def on_privmsg(self, conn, ev):
-    message = ev.arguments[0]
-    conn.privmsg(ev.source.nick, u"Hi {}, you said: {}".format(ev.source, message))
+    message = ev.arguments[0].strip()
+    can_admin = False
+    if message.startswith(self.config.management_password):
+      can_admin = True
+      message = message[len(self.config.management_password):].strip()
+    words = message.split()
+    if len(words) > 0:
+      command = words[0].lower()
+      words = words[1:]
+    else:
+      command = 'help'
+
+    if command == 'log':
+      channels = self.get_userchannels(ev.source.nick)
+      if len(words) >= 2:
+        channels = [chn for chn in channels if chn in words[1:]]
+      for chn in channels:
+        token = self.make_log_read_token(ev.source.nick, chn)
+        conn.privmsg(ev.source.nick, self.config.log_read_url_format.format(channel=chn, token=token))
+    elif command == 'help':
+      lines = [
+        "Send me an IRC /invite to have me join and start logging a channel.",
+        "To make me stop logging a channel, just /kick me from it.",
+        "Other commands you can send me by private message:",
+        "  LOG     Get a URL to read recent logs from the channels I'm in",
+        "  HELP    Show this help message",
+      ]
+      if can_admin:
+        lines += [
+          "  INFO    Show information about channels I'm in, and my configuration",
+          "  SAY     Takes arguments, first a target, then a message, delivers the message to the target"
+          "  OP      Takes argument, a channel to rescue, only works when bot is the sole OP in channel"
+        ]
+      for l in lines:
+        conn.privmsg(ev.source.nick, l)
+    elif command == "info" and can_admin:
+      print u"INFO from {}".format(ev.source)
+      conn.privmsg(ev.source.nick, "Log expiry time: {} minutes".format(self.config.expiretime/60))
+      conn.privmsg(ev.source.nick, "Max log length: {} entries".format(self.config.maxlogentries))
+      conn.privmsg(ev.source.nick, "Currently logging the following channels:")
+      for chn in self.desired_channels:
+        conn.privmsg(ev.source.nick, u"  {}".format(chn))
+    elif command == 'say' and can_admin:
+      if len(words) < 2:
+        conn.privmsg(ev.source.nick, "Usage: <password> SAY <target> <message>")
+      else:
+        print u"SAY {} from {}".format(words[0], ev.source)
+        conn.privmsg(words[0], ' '.join(words[1:]))
+    elif command == "op" and can_admin:
+      if len(words) < 1:
+        conn.privmsg(ev.source.nick, "Usage: <password> OP <channel>")
+      elif not words[0] in self.channels:
+        conn.privmsg(ev.source.nick, "Can't rescue {}, I'm not on that channel".format(words[0]))
+      elif not self.channels[words[0]].is_oper(conn.get_nickname()):
+        conn.privmsg(ev.source.nick, "Can't rescue {}, I'm not OP on that channel".format(words[0]))
+      elif self.channels[words[0]].opers() != [conn.get_nickname()]:
+        conn.privmsg(ev.source.nick, "Can't rescue {}, I'm not the sole OP on that channel".format(words[0]))
+      else:
+        print u"OP {} from {}".format(words[0], ev.source)
+        conn.mode(words[0], '+o {}'.format(ev.source.nick))
+        conn.privmsg(ev.source.nick, "Gave you OP on {}".format(words[0]))
+    elif not can_admin and command in ['info', 'say', 'op']:
+      conn.privmsg(ev.source.nick, "Sorry, you need to know the management password to use this command")
 
   def on_pubmsg(self, conn, ev):
     logdata = {
