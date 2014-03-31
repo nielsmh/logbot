@@ -35,7 +35,8 @@ class LogBot(irc.bot.SingleServerIRCBot):
 
   def save_config(self):
     self.db.delete('cfg:channels')
-    self.db.lpush('cfg:channels', *[ch.encode('utf-8') for ch in self.desired_channels.keys()])
+    for ch in self.desired_channels.iterkeys():
+      self.db.lpush('cfg:channels', ch.encode('utf-8'))
 
   def trimlog(self, channel):
     self.db.ltrim('log:{}'.format(channel.encode('utf-8')), 0, self.config.maxlogentries-1)
