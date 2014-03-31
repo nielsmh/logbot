@@ -43,7 +43,6 @@ class LogBot(irc.bot.SingleServerIRCBot):
     print u"Performing database maintenance..."
     for ch in self.channels.keys():
       self.trimlog(ch)
-    self.db.bgsave()
     print u"Database maintenance done"
 
   def add_log(self, logdata, channels):
