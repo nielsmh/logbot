@@ -42,10 +42,8 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.db.ltrim('log:{}'.format(channel.encode('utf-8')), 0, self.config.maxlogentries-1)
 
   def syncdb(self):
-    print u"Performing database maintenance..."
     for ch in self.channels.keys():
       self.trimlog(ch)
-    print u"Database maintenance done"
 
   def add_log(self, logdata, channels):
     # log the given data for the given list of channels
