@@ -21,7 +21,7 @@ class LogBot(irc.bot.SingleServerIRCBot):
     self.desired_channels.update((ch.decode('utf-8'), True) for ch in db_channels)
     print u"Total {} channels to join".format(len(self.desired_channels))
 
-    super(LogBot, self).__init__(config.servers, config.nick, config.realname)
+    super(LogBot, self).__init__(config.servers, config.nick, config.realname, username="logbot")
 
     # need to handle QUIT messages before the default bot handling,
     # so the nick is still registered on the channels for us to log
