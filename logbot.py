@@ -174,8 +174,8 @@ class LogBot(irc.bot.SingleServerIRCBot):
       if can_admin:
         lines += [
           "  INFO    Show information about channels I'm in, and my configuration",
-          "  SAY     Takes arguments, first a target, then a message, delivers the message to the target"
-          "  OP      Takes argument, a channel to rescue, only works when bot is the sole OP in channel"
+          "  SAY     Takes arguments, first a target, then a message, delivers the message to the target",
+          "  OP      Takes argument, a channel to rescue, only works when bot is the sole OP in channel",
         ]
       for l in lines:
         conn.privmsg(ev.source.nick, l)
